@@ -1,3 +1,37 @@
+<?php
+session_start();
+if (empty($_SESSION['loggedIn'])) {
+  if (isset($_POST['Submit'])) {
+    if ($_POST['pw'] == 'abcd') {
+      $_SESSION['loggedIn'] = true;
+    }
+    header( "Location: index.php" );
+  }
+?>
+<html>
+<head>
+  <title>DID Admin Login</title>
+  <style>
+    .pwfield{font-size:24px;padding:5px}
+    input[type="submit"]{font-size:24px}
+  </style>
+</head>
+<body>
+  <form action="./index.php" method="post" name="loginForm">
+    <input type="password" name="pw" class="pwfield" maxlength="64">
+    <input type="submit" name="Submit" value="로그인">
+  </form>
+  <script src="../jquery-3.7.0.min.js"></script>
+  <script>
+    $(function() {
+      $('.pwfield').focus().select();
+    });
+  </script>
+</body>
+</html>
+<?php
+} else {
+?>
 <html>
 <head>
   <title>DID Admin</title>
@@ -72,3 +106,6 @@
   </script>
 </body>
 </html>
+<?php
+}
+?>
