@@ -4,14 +4,19 @@
   <meta charset="utf-8">
     <title>HTML</title>
     <style>
-      video { max-width: 100%; display: block; position: absolute; left: 0; top: 0; }
-      .ann{z-index:100;position:absolute;top:0;left:0;width:400px;height:100%;}
-      .newOrders{position:absolute;width:200px;height:100%;left:0px}
-      .readyOrders{position:absolute;width:200px;height:100%;left:200px}
-      .newOrders .inner{max-height:700px;overflow:hidden}
-      .newOrders .inner>div,.readyOrders .inner>div{color:#fff;margin:4px;font-size:27px;padding:10px 0;text-align:center;width:90px;display:inline-block}
-      .newOrders .inner>div{background:#cc0000;border:1px solid #000;text-shadow:0px 1px 1px #000}
-      .readyOrders .inner>div{background:#00aa00;border:1px solid #000;text-shadow:0px 1px 1px #000}
+      video{max-width: 100%; display: block; position: absolute; left: 0; top: 0;}
+      .ann{z-index:1000;position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);font-size:50px;color:white;background:#e00;min-width:100px;text-align:center;display:inline-block;}
+      .status{width:16px;height:16px;border-radius:50%;position:absolute;bottom:2px;right:2px;background:gray;}
+      .green{background:green;}
+      .red{background:red;}
+      .blink {
+        animation: blink 1s steps(1, end) 3;
+      }
+      @keyframes blink {
+        0% {opacity: 1;}
+        70% {opacity: 0;}
+        100% {opacity: 1;}
+      }
     </style>
   </head>
 <body>
@@ -20,59 +25,63 @@
       <source src="season.mp4" type="video/mp4">
       <strong>메뉴보드 준비중입니다.</strong>
     </video>
-    <div class="ann">
-      <div class="newOrders"><div class="inner"></div></div>
-      <div class="readyOrders"><div class="inner"></div></div>
-    </div>
-    <div id="count" style="position:absolute;bottom:0"></div>
+    <div class="ann"></div>
+    <audio id="dingDongAudio" controls autoplay="false" preload="auto">
+      <source src="./ding.wav" type="audio/wav">
+    </audio>
+    <div class="status"></div>
   </div>
   <script src="./jquery-3.7.0.min.js"></script>
   <script>
+    //const wsUrl = 'ws://www.mrf.kr:8080';
+    const wsUrl = 'ws://localhost:8080';
+    let ws;
+
+    const ding = new Audio('ding.wav');    
+
     $(function() {
-      function getOrders() {
-        $.ajax({
-          //url: 'https://mrf.kr/did/05/orders.php',
-          url: 'http://localhost:8888/did/05/orders.php',
-          type: 'GET',
-          success: function (data, status, xhr) {
-            console.log('data:',data);
-            //alertify.dismissAll();
-            $('.newOrders .inner').empty();
-            $('.readyOrders .inner').empty();
+      const heartbeat = () => {
+        clearTimeout(this.pingTimeout);
+        this.pingTimeout = setTimeout(() => {
+          this.terminate();
+        }, 35000);
+      };
 
-            data['n'].map(orderNew => {
-               //alertify.message(orderItem['order_number'], 0);
-               $('.newOrders .inner').append('<div>' + orderNew['order_number'] + '</div>');
-            });
-            data['r'].map(orderReady => {
-               //alertify.message(orderItem['order_number'], 0);
-               $('.readyOrders .inner').append('<div>' + orderReady['order_number'] + '</div>');
-            });
-          },
-          error: function(xhr, status, error) {
-            console.error('xhr:',xhr);
-            console.error('status:',status);
-            console.error('error:',error);
+      const connectWs = () => {
+        ws = new WebSocket(wsUrl);
+        ws.onopen = function() {
+          //heartbeat();
+          $('.status').removeClass('red').addClass('green');
+        };
+        //ws.onping = function() { heartbeat(); };
+        ws.onmessage = function(e) {
+          console.log('message:',e.data);
+          const parsed = JSON.parse(e.data);
+          if (parsed.type ==='order') {
+            document.getElementById('dingDongAudio').play();
+
+            $('.ann').text(parsed.value).addClass('blink');
+            setTimeout(function() {
+              $('.ann').removeClass('blink').text('');
+            }, 5000);
           }
-        });
-
-        setTimeout(function() {
-          getOrders();
-        }, 5000 );
-      }
-
-      //getOrders();
-      console.log('websocket .');
-      var ws = new WebSocket('ws://www.mrf.kr:8080/');
-      ws.onopen = function() {
-        document.body.style.backgroundColor = '#cfc';
+        };
+        ws.onerror = function(err) {
+          console.error('Socket encountered error: ', err, 'Closing socket');
+          ws.close();
+          $('.status').removeClass('green').addClass('red');
+        };
+        ws.onclose = function(e) {
+          clearTimeout(this.pingTimeout);
+          console.log('Socket is closed. Reconnect in 3 second.', e);
+          $('.textfield').prop('disabled', true);
+          $('.status').removeClass('green').addClass('red');
+          setTimeout(function() {
+            connectWs();
+          }, 3000);
+        };
       };
-      ws.onclose = function() {
-        document.body.style.backgroundColor = null;
-      };
-      ws.onmessage = function(event) {
-        document.getElementById('count').textContent = event.data;
-      };
+      connectWs();
     });
   </script>
 </body>
